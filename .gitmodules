@@ -1,0 +1,3 @@
+[submodule "DAGV-Unity/Assets/ArtisanDream.Tools"]
+	path = DAGV-Unity/Assets/ArtisanDream.Tools
+	url = https://github.com/anthonyromrell/ArtisanDream.Tools
