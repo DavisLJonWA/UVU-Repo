@@ -7,19 +7,21 @@ using UnityEngine.InputSystem.Controls;
 /// <summary>
 /// On-screen debug report for the ArtisanDream horror project (like Minecraft's F3).
 ///
-/// Toggle with F3. Shows: currently pressed keys, player world coordinates,
-/// and the 360-degree facing direction (with an 8-point compass label).
+/// Toggle with F3. Shows: pressed keys, player coordinates, 360-degree facing
+/// (with an 8-point compass), movement state, stamina, and interaction state.
 ///
 /// ---- HOW TO EXTEND ----
-/// Every time you add a new player ability, surface it here in ONE place:
-///   1. Expose the value on FirstPersonController as a public getter
-///      (see IsGrounded / Velocity there for examples).
+/// When you add a new player ability, surface it here in ONE place:
+///   1. Expose the value as a public getter on the relevant script
+///      (see FirstPersonController.IsGrounded or PlayerInteractor.AimedName).
 ///   2. Add a line inside BuildDebugText() where marked below.
 /// </summary>
 public class PlayerDebugOverlay : MonoBehaviour
 {
     [Tooltip("The player to report on. Auto-found if left empty.")]
     [SerializeField] private FirstPersonController player;
+    [Tooltip("Interaction reporter. Auto-found if left empty.")]
+    [SerializeField] private PlayerInteractor interactor;
 
     [SerializeField] private bool visibleOnStart = false;
     [SerializeField] private int fontSize = 16;
@@ -34,6 +36,7 @@ public class PlayerDebugOverlay : MonoBehaviour
         show = visibleOnStart;
         if (player == null) player = GetComponent<FirstPersonController>();
         if (player == null) player = FindFirstObjectByType<FirstPersonController>();
+        if (interactor == null) interactor = FindFirstObjectByType<PlayerInteractor>();
     }
 
     private void Update()
@@ -62,12 +65,18 @@ public class PlayerDebugOverlay : MonoBehaviour
             float horizontalSpeed = new Vector3(v.x, 0f, v.z).magnitude;
             sb.AppendLine($"Speed   {horizontalSpeed:0.00} m/s    Grounded  {player.IsGrounded}");
 
-            // >>> Add new player-state lines here as you build features <<<
+            sb.AppendLine($"Sprint  {player.IsSprinting}    Crouch  {player.IsCrouching}    LeanMode  {player.IsLeaning}");
+            sb.AppendLine($"Stamina {player.Stamina:0} / {player.MaxStamina:0}");
         }
         else
         {
             sb.AppendLine("<no FirstPersonController found>");
         }
+
+        if (interactor != null)
+            sb.AppendLine($"Aim     {interactor.AimedName}    Holding  {interactor.HeldName}  ({interactor.HoldDistance:0.0}m)");
+
+        // >>> Add new player-state lines here as you build features <<<
 
         sb.Append("Keys    ").Append(PressedKeys());
         return sb.ToString();
