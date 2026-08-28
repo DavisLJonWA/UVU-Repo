@@ -1,28 +1,17 @@
 using UnityEngine;
 
 /// <summary>
-/// Basic on-screen HUD for the ArtisanDream horror project. Draws (all via
-/// immediate-mode GUI, so no Canvas setup):
-///   - a small crosshair dot at screen center (where the aim ray points),
-///   - the stamina bar (bottom-left),
-///   - the interaction prompt (e.g. "[E] Use") when in range of something,
-///   - transient messages (e.g. "Nothing happened."),
-///   - a throw-charge bar while charging a throw.
-/// Swap to a proper UI Canvas later if you want nicer visuals.
+/// Immediate-mode HUD elements that intentionally stay CRISP (NOT affected by
+/// the CRT post effect): the aim crosshair, the interaction prompt, transient
+/// messages, and the throw-charge bar. Drawn with OnGUI, which renders after
+/// the render pipeline.
+///
+/// The stamina bar and pause menu moved to a Screen Space - Camera canvas so
+/// they CAN be affected by the CRT effect — see StaminaBarUI / PauseManager.
 /// </summary>
 public class PlayerHUD : MonoBehaviour
 {
-    [Header("References")]
-    [SerializeField] private FirstPersonController player;
     [SerializeField] private PlayerInteractor interactor;
-
-    [Header("Stamina Bar")]
-    [SerializeField] private float barWidth = 220f;
-    [SerializeField] private float barHeight = 16f;
-    [SerializeField] private float margin = 24f;
-    [SerializeField] private bool hideWhenFull = true;
-
-    [Header("Crosshair")]
     [SerializeField] private float crosshairSize = 4f;
 
     private Texture2D pixel;
@@ -30,7 +19,6 @@ public class PlayerHUD : MonoBehaviour
 
     private void Awake()
     {
-        if (player == null) player = FindFirstObjectByType<FirstPersonController>();
         if (interactor == null) interactor = FindFirstObjectByType<PlayerInteractor>();
         pixel = Texture2D.whiteTexture;
     }
@@ -42,7 +30,6 @@ public class PlayerHUD : MonoBehaviour
             { alignment = TextAnchor.MiddleCenter, fontSize = 18, richText = true };
 
         DrawCrosshair();
-        DrawStamina();
         DrawInteraction();
     }
 
@@ -55,32 +42,12 @@ public class PlayerHUD : MonoBehaviour
         GUI.color = prev;
     }
 
-    private void DrawStamina()
-    {
-        if (player == null) return;
-
-        float fill = player.Stamina01;
-        if (hideWhenFull && fill >= 0.999f) return;
-
-        float x = margin, y = Screen.height - margin - barHeight;
-        Color prev = GUI.color;
-
-        GUI.color = new Color(0f, 0f, 0f, 0.6f);
-        GUI.DrawTexture(new Rect(x - 2f, y - 2f, barWidth + 4f, barHeight + 4f), pixel);
-
-        GUI.color = Color.Lerp(new Color(0.80f, 0.15f, 0.15f), new Color(0.25f, 0.80f, 0.35f), fill);
-        GUI.DrawTexture(new Rect(x, y, barWidth * fill, barHeight), pixel);
-
-        GUI.color = prev;
-    }
-
     private void DrawInteraction()
     {
         if (interactor == null) return;
 
         float cx = Screen.width / 2f, cy = Screen.height / 2f;
 
-        // Throw charge bar (only while charging).
         float charge = interactor.ThrowCharge01;
         if (charge > 0.001f)
         {
@@ -94,12 +61,10 @@ public class PlayerHUD : MonoBehaviour
             DrawCentered("Throw power", cx, y + 22f);
         }
 
-        // Prompt (in-range indicator).
         string prompt = interactor.InteractionPrompt;
         if (!string.IsNullOrEmpty(prompt))
             DrawCentered(prompt, cx, cy + 80f);
 
-        // Transient message.
         string msg = interactor.Message;
         if (!string.IsNullOrEmpty(msg))
             DrawCentered(msg, cx, cy - 40f);
@@ -109,7 +74,6 @@ public class PlayerHUD : MonoBehaviour
     {
         float w = 600f, h = 30f;
         Rect r = new Rect(centerX - w / 2f, centerY - h / 2f, w, h);
-
         Color prev = GUI.color;
         GUI.color = Color.black;
         GUI.Label(new Rect(r.x + 1f, r.y + 1f, r.width, r.height), text, centerStyle);
