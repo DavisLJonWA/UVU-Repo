@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -85,31 +84,33 @@ public class PlayerDebugOverlay : MonoBehaviour
 
         // >>> Add new player-state lines here as you build features <<<
 
-        sb.Append("Keys    ").Append(PressedKeys());
+        sb.Append("Keys    ");
+        AppendPressedKeys();
         return sb.ToString();
     }
 
-    private static string PressedKeys()
+    // Appends pressed keys straight into the shared StringBuilder, so there's no
+    // per-frame List or joined-string garbage while the overlay is open.
+    private void AppendPressedKeys()
     {
         Keyboard keyboard = Keyboard.current;
-        if (keyboard == null) return "(no keyboard)";
+        if (keyboard == null) { sb.Append("(no keyboard)"); return; }
 
-        List<string> pressed = new List<string>();
+        int start = sb.Length;
         foreach (KeyControl key in keyboard.allKeys)
         {
-            if (key == null) continue; // allKeys can contain null slots
-            if (key.isPressed) pressed.Add(key.keyCode.ToString());
+            if (key == null) continue;      // allKeys can contain null slots
+            if (!key.isPressed) continue;
+            if (sb.Length > start) sb.Append("  ");
+            sb.Append(key.keyCode.ToString());
         }
-
-        return pressed.Count == 0 ? "(none)" : string.Join("  ", pressed);
+        if (sb.Length == start) sb.Append("(none)");
     }
 
-    private static string Cardinal(float yaw)
-    {
-        string[] dirs = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
-        int index = Mathf.RoundToInt(yaw / 45f) & 7;
-        return dirs[index];
-    }
+    private static readonly string[] CardinalDirs = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+
+    // & 7 wraps 8 (a full 360 degrees) back to 0.
+    private static string Cardinal(float yaw) => CardinalDirs[Mathf.RoundToInt(yaw / 45f) & 7];
 
     private void OnGUI()
     {

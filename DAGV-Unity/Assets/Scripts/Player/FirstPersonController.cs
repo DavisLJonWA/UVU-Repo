@@ -81,6 +81,12 @@ public class FirstPersonController : MonoBehaviour
     public bool IsSprinting => isSprinting;
     public bool IsCrouching => isCrouching;
     public bool IsLeaning => leanModeActive;
+
+    /// <summary>The player's intended horizontal speed right now (0 if not moving).
+    /// Reflects walk / sprint / crouch, so systems like push-doors can react to how
+    /// fast the player is TRYING to move even when a door is blocking real velocity.</summary>
+    public float DesiredSpeed => (moveAction != null && GetMoveInput().sqrMagnitude > 0.01f)
+        ? MoveSpeed * SpeedMultiplier() : 0f;
     public float Stamina => currentStamina;
     public float MaxStamina => maxStamina;
     public float Stamina01 => maxStamina > 0f ? Mathf.Clamp01(currentStamina / maxStamina) : 0f;
@@ -250,12 +256,12 @@ public class FirstPersonController : MonoBehaviour
     {
         Vector2 input = GetMoveInput();
 
-        // Jump: grounded, standing, and enough stamina.
-        if (jumpAction.WasPressedThisFrame() && controller.isGrounded && !isCrouching && currentStamina >= jumpStaminaCost)
+        // Jump: grounded, standing, and enough stamina. Spend via the shared
+        // TrySpendStamina path (same one throwing uses) instead of duplicating it.
+        // && short-circuits, so stamina is only spent when the jump actually happens.
+        if (jumpAction.WasPressedThisFrame() && controller.isGrounded && !isCrouching && TrySpendStamina(jumpStaminaCost))
         {
             verticalVelocity = Mathf.Sqrt(2f * -gravity * jumpHeight);
-            currentStamina -= jumpStaminaCost;
-            staminaIdleTimer = 0f;
         }
 
         // Gravity: small stick-down force while grounded, otherwise accelerate.

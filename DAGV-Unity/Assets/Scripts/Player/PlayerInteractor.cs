@@ -193,6 +193,18 @@ public class PlayerInteractor : MonoBehaviour
 
     private void OnControllerColliderHit(ControllerColliderHit hit)
     {
+        // Push-doors: walk into them to swing them open, scaled by how fast we move.
+        Door door = hit.collider.GetComponentInParent<Door>();
+        if (door != null)
+        {
+            float doorSpeed = player != null ? player.DesiredSpeed : 0f;
+            // Scale by how head-on the approach is, so a glancing brush barely nudges it.
+            float into = Mathf.Clamp01(-Vector3.Dot(hit.moveDirection, hit.normal));
+            float pushSpeed = doorSpeed * into;
+            if (pushSpeed > 0.01f) door.Push(hit.point, -hit.normal, pushSpeed);
+            return; // handled as a door; don't also treat it as a shovable rigidbody
+        }
+
         Rigidbody body = hit.collider.attachedRigidbody;
         if (body == null || body.isKinematic) return;
         if (body.TryGetComponent(out Pickuppable p) && p.IsCarried) return; // don't shove carried object
