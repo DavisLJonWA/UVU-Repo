@@ -20,7 +20,10 @@ public class PlayerInteractor : MonoBehaviour
     [SerializeField] private LayerMask interactMask = ~0;
 
     [Header("Carry")]
-    [SerializeField] private float scrollSensitivity = 0.002f;
+    [Tooltip("How far (metres) each mouse-wheel notch moves a held object nearer/further. " +
+             "Uses the scroll direction, not its raw amount, so it feels the same on every " +
+             "platform. Raise for a stronger scroll.")]
+    [SerializeField] private float scrollStep = 0.2f;
 
     [Header("Throw (hold Right Mouse to charge)")]
     [SerializeField] private float maxChargeTime = 1.2f;
@@ -29,6 +32,8 @@ public class PlayerInteractor : MonoBehaviour
     [Tooltip("Stamina cost scales from min (tap) to max (full charge).")]
     [SerializeField] private float minThrowStamina = 5f;
     [SerializeField] private float maxThrowStamina = 20f;
+    [Tooltip("Loudness (audible radius) of a full-charge throw. Scales down with charge.")]
+    [SerializeField] private float throwNoise = 20f;
 
     [Header("Push")]
     [Tooltip("Base push speed. Actual = this / object mass (heavier = slower).")]
@@ -78,7 +83,7 @@ public class PlayerInteractor : MonoBehaviour
     {
         if (messageTimer > 0f) messageTimer -= Time.deltaTime;
 
-        if (PauseManager.IsPaused) { InteractionPrompt = ""; return; }
+        if (PauseManager.IsPaused || GameOverManager.IsGameOver) { InteractionPrompt = ""; return; }
 
         Interactable aimedInteractable = Raycast(out Pickuppable aimedPickup);
         AimedName = aimedInteractable != null ? aimedInteractable.PromptName
@@ -113,7 +118,9 @@ public class PlayerInteractor : MonoBehaviour
         if (heldObject != null)
         {
             float scrollY = scrollAction.ReadValue<Vector2>().y;
-            if (Mathf.Abs(scrollY) > 0.01f) heldObject.AdjustDistance(scrollY * scrollSensitivity);
+            // Use the scroll DIRECTION times a fixed step, so platform scroll-scale
+            // differences don't make it feel weak or wildly strong.
+            if (Mathf.Abs(scrollY) > 0.01f) heldObject.AdjustDistance(Mathf.Sign(scrollY) * scrollStep);
         }
     }
 
@@ -140,6 +147,7 @@ public class PlayerInteractor : MonoBehaviour
             Pickuppable obj = heldObject;
             heldObject = null;
             obj.Throw(aimSource.forward * force);
+            Noise.Emit(obj.transform.position, throwNoise * ratio); // full charge = loud
         }
         else
         {

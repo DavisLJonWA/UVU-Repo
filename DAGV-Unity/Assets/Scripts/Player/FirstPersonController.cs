@@ -108,6 +108,15 @@ public class FirstPersonController : MonoBehaviour
     private float pitch;              // up/down camera angle
     private float verticalVelocity;   // Y-axis speed (gravity / jump)
 
+    [Header("Footstep Noise")]
+    [Tooltip("Base seconds between footstep sounds while moving.")]
+    [SerializeField] private float footstepInterval = 0.5f;
+    [SerializeField] private float walkLoudness = 6f;
+    [SerializeField] private float sprintLoudness = 12f;
+    [Tooltip("Crouch is meant to be near-silent.")]
+    [SerializeField] private float crouchLoudness = 1f;
+    private float footstepTimer;
+
     private bool isSprinting;
     private bool isCrouching;
     private bool leanModeActive;
@@ -172,13 +181,14 @@ public class FirstPersonController : MonoBehaviour
 
     private void Update()
     {
-        if (PauseManager.IsPaused) return;
+        if (PauseManager.IsPaused || GameOverManager.IsGameOver) return;
 
         HandleToggles();
         HandleLook();
         HandleStance();
         HandleStamina();
         HandleMovement();
+        HandleFootstepNoise();
         HandleLean();
         UpdateCameraTransform();
     }
@@ -301,6 +311,24 @@ public class FirstPersonController : MonoBehaviour
     }
 
     // Composes crouch height + lean offset + pitch + lean roll into the camera each frame.
+    private void HandleFootstepNoise()
+    {
+        if (!controller.isGrounded || GetMoveInput().sqrMagnitude < 0.01f)
+        {
+            footstepTimer = 0f;
+            return;
+        }
+
+        // Sprint = quicker, louder steps; crouch = slower, near-silent.
+        float interval = footstepInterval * (isSprinting ? 0.6f : isCrouching ? 1.3f : 1f);
+        footstepTimer += Time.deltaTime;
+        if (footstepTimer < interval) return;
+        footstepTimer = 0f;
+
+        float loudness = isCrouching ? crouchLoudness : isSprinting ? sprintLoudness : walkLoudness;
+        Noise.Emit(transform.position, loudness);
+    }
+
     private void UpdateCameraTransform()
     {
         if (cameraTransform == null) return;
