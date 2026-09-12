@@ -67,6 +67,12 @@ public abstract class Enemy : MonoBehaviour
     [SerializeField] protected float wanderSpeed = 2f;
     [SerializeField] protected float chaseSpeed = 4.5f;
 
+    [Header("Pushing")]
+    [Tooltip("Layers the enemy can shove: doors and physics objects. Exclude the enemy's own layer if it self-hits.")]
+    [SerializeField] protected LayerMask pushMask = ~0;
+    [Tooltip("How hard the enemy shoves loose objects out of its way (divided by object mass).")]
+    [SerializeField] protected float shoveStrength = 3f;
+
     protected NavMeshAgent agent;
     protected State state = State.Wander;
     protected Vector3 lastKnownPos;
@@ -76,6 +82,7 @@ public abstract class Enemy : MonoBehaviour
     private NavMeshPath pathBuffer;
     private readonly List<int> recentWaypoints = new List<int>();
     private readonly List<int> eligibleScratch = new List<int>();
+    private readonly Collider[] pushBuffer = new Collider[8];
 
     protected virtual void Awake()
     {
@@ -105,6 +112,8 @@ public abstract class Enemy : MonoBehaviour
             case State.Investigate: TickInvestigate();  break;
             default:                TickWander();        break;
         }
+
+        HandlePushing();
 
         // Horizontal distance only: a height difference between the enemy's and
         // player's pivots must not stop a catch when they're physically touching.
@@ -264,7 +273,7 @@ public abstract class Enemy : MonoBehaviour
 
         int chosen = eligibleScratch[Random.Range(0, eligibleScratch.Count)];
         if (NavMesh.SamplePosition(waypoints[chosen].position, out NavMeshHit hit, 2f, NavMesh.AllAreas)
-            && IsReachable(hit.position))
+            && IsReachableAllowingDoors(hit.position))
         {
             recentWaypoints.Add(chosen);
             while (recentWaypoints.Count > Mathf.Max(0, waypointCooldown))
@@ -279,6 +288,55 @@ public abstract class Enemy : MonoBehaviour
     protected bool IsReachable(Vector3 dest)
     {
         return agent.CalculatePath(dest, pathBuffer) && pathBuffer.status == NavMeshPathStatus.PathComplete;
+    }
+
+    // Like IsReachable, but tolerant of closed doors. A door carves the navmesh, so
+    // a path THROUGH a closed door comes back Partial rather than Complete. We accept
+    // Partial (the enemy walks to the door, pushes it open, then re-paths) and only
+    // reject Invalid (genuinely off-navmesh / no route at all). If a waypoint is truly
+    // walled off, the enemy heads toward it, stops, and re-decides next interval.
+    protected bool IsReachableAllowingDoors(Vector3 dest)
+    {
+        if (!agent.CalculatePath(dest, pathBuffer)) return false;
+        return pathBuffer.status != NavMeshPathStatus.PathInvalid;
+    }
+
+    // ---------------- Pushing doors / objects ----------------
+    // The agent isn't a physics body, so it must actively shove things it walks
+    // into: open doors (same Push the player uses) and knock loose objects aside.
+    protected virtual void HandlePushing()
+    {
+        // Use the agent's INTENDED speed, not its actual velocity. When a carved
+        // door blocks the agent, actual velocity drops to ~0 and the push fizzles
+        // (so the door seems to "fight" it). Intended speed keeps it shoving firmly
+        // until the door clears — the same trick the player uses with DesiredSpeed.
+        float pushSpeed = Mathf.Max(agent.velocity.magnitude, agent.hasPath ? agent.speed : 0f);
+        if (pushSpeed < 0.1f) return;
+
+        // Look a little ahead of the enemy so doors start opening before it arrives.
+        Vector3 front = transform.position + Vector3.up * 0.6f + transform.forward * (agent.radius + 0.5f);
+        int n = Physics.OverlapSphereNonAlloc(front, 0.5f, pushBuffer, pushMask, QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < n; i++)
+        {
+            Collider col = pushBuffer[i];
+            if (col.transform == transform || col.transform.IsChildOf(transform)) continue; // skip self
+
+            Door door = col.GetComponentInParent<Door>();
+            if (door != null)
+            {
+                door.Push(col.ClosestPoint(front), transform.forward, pushSpeed);
+                continue;
+            }
+
+            Rigidbody rb = col.attachedRigidbody;
+            if (rb != null && !rb.isKinematic)
+            {
+                float shove = shoveStrength / Mathf.Max(rb.mass, 0.01f); // heavier = less
+                Vector3 v = rb.linearVelocity;
+                rb.linearVelocity = new Vector3(transform.forward.x * shove, v.y, transform.forward.z * shove);
+            }
+        }
     }
 
     // ---------------- Touch ----------------

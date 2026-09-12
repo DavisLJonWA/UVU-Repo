@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// Resident-Evil-style push door for the ArtisanDream horror project. It swings
@@ -73,6 +74,28 @@ public class Door : MonoBehaviour
         // Kinematic so the door doesn't fall or get shoved out of place, but still
         // collides with — and receives collision callbacks from — dynamic objects.
         GetComponent<Rigidbody>().isKinematic = true;
+
+        ConfigureNavObstacle();
+    }
+
+    // Blocks NavMeshAgents (enemies) the same way the collider blocks the player.
+    // A NavMeshAgent ignores colliders, so we carve the navmesh at the leaf: closed
+    // door = doorway carved shut (agents go around or push through), open door =
+    // clear. Skipped if you've added your own NavMeshObstacle to tune it.
+    private void ConfigureNavObstacle()
+    {
+        Collider leaf = GetComponentInChildren<Collider>();
+        if (leaf == null || leaf.GetComponent<NavMeshObstacle>() != null) return;
+
+        NavMeshObstacle obs = leaf.gameObject.AddComponent<NavMeshObstacle>();
+        obs.carving = true;
+        obs.carveOnlyStationary = true;   // carve when settled (closed/open); passable mid-swing
+        obs.shape = NavMeshObstacleShape.Box;
+        if (leaf is BoxCollider box)
+        {
+            obs.center = box.center;
+            obs.size = box.size;
+        }
     }
 
     /// <summary>Player entry point. contactPoint is where they hit, pushDir points
