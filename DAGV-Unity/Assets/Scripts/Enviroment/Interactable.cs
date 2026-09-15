@@ -29,18 +29,18 @@ public class Interactable : MonoBehaviour
 
     /// <summary>True if any inspector-wired listeners exist on either event.
     /// The interactor uses this to show "Nothing happened." on empty objects.</summary>
-    public bool HasBehaviour =>
+    public virtual bool HasBehaviour =>
         onActivated.GetPersistentEventCount() > 0 || onDeactivated.GetPersistentEventCount() > 0;
 
     /// <summary>Called by PlayerInteractor when E is pressed while aiming here.</summary>
-    public void InteractStart()
+    public virtual void InteractStart()
     {
         if (mode == Mode.Toggle) SetActive(!IsActive);
         else SetActive(true);
     }
 
     /// <summary>Called by PlayerInteractor when E is released (matters for Hold mode).</summary>
-    public void InteractEnd()
+    public virtual void InteractEnd()
     {
         if (mode == Mode.Hold) SetActive(false);
     }

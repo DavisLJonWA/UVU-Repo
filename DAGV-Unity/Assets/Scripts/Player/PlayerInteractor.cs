@@ -39,14 +39,21 @@ public class PlayerInteractor : MonoBehaviour
     [Tooltip("Base push speed. Actual = this / object mass (heavier = slower).")]
     [SerializeField] private float pushStrength = 2f;
 
+    [Header("Hold (E to hold, R to drop)")]
+    [Tooltip("Empty child of the camera where held items sit (position it at the bottom-right of the view).")]
+    [SerializeField] private Transform holdAnchor;
+    [Tooltip("How far in front of the player a held item is dropped.")]
+    [SerializeField] private float dropDistance = 1.5f;
+
     [Header("Messages")]
     [SerializeField] private float messageDuration = 1.5f;
 
     private FirstPersonController player;
-    private InputAction useAction, grabAction, throwAction, scrollAction;
+    private InputAction useAction, grabAction, throwAction, scrollAction, dropAction;
 
     private Interactable activeInteractable;
     private Pickuppable heldObject;
+    private Holdable heldItem;
     private float chargeTimer;
     private string messageText = "";
     private float messageTimer;
@@ -59,6 +66,7 @@ public class PlayerInteractor : MonoBehaviour
     public string InteractionPrompt { get; private set; } = "";
     public string Message => messageTimer > 0f ? messageText : "";
     public float ThrowCharge01 => maxChargeTime > 0f ? Mathf.Clamp01(chargeTimer / maxChargeTime) : 0f;
+    public Holdable HeldItem => heldItem;
 
     private void Awake()
     {
@@ -73,37 +81,54 @@ public class PlayerInteractor : MonoBehaviour
         grabAction   = new InputAction("Grab", InputActionType.Button, "<Mouse>/leftButton");
         throwAction  = new InputAction("Throw", InputActionType.Button, "<Mouse>/rightButton");
         scrollAction = new InputAction("Scroll", InputActionType.Value, "<Mouse>/scroll");
+        dropAction   = new InputAction("Drop", InputActionType.Button, "<Keyboard>/r");
     }
 
-    private void OnEnable()  { useAction.Enable();  grabAction.Enable();  throwAction.Enable();  scrollAction.Enable(); }
-    private void OnDisable() { useAction.Disable(); grabAction.Disable(); throwAction.Disable(); scrollAction.Disable();
-                               DropHeld(); ReleaseInteractable(); }
+    private void OnEnable()  { useAction.Enable();  grabAction.Enable();  throwAction.Enable();  scrollAction.Enable();  dropAction.Enable(); }
+    private void OnDisable() { useAction.Disable(); grabAction.Disable(); throwAction.Disable(); scrollAction.Disable(); dropAction.Disable();
+                               DropHeld(); DropItem(); ReleaseInteractable(); }
 
     private void Update()
     {
         if (messageTimer > 0f) messageTimer -= Time.deltaTime;
 
-        if (PauseManager.IsPaused || GameOverManager.IsGameOver) { InteractionPrompt = ""; return; }
+        if (PauseManager.IsPaused || GameOverManager.IsGameOver || VictoryManager.IsVictory) { InteractionPrompt = ""; return; }
 
-        Interactable aimedInteractable = Raycast(out Pickuppable aimedPickup);
+        Interactable aimedInteractable = Raycast(out Pickuppable aimedPickup, out Holdable aimedHoldable);
         AimedName = aimedInteractable != null ? aimedInteractable.PromptName
+                  : aimedHoldable != null ? aimedHoldable.DisplayName
                   : aimedPickup != null ? aimedPickup.name : "-";
 
-        HandleUse(aimedInteractable);
+        HandleUse(aimedInteractable, aimedHoldable);
         HandleGrab(aimedPickup);
         HandleThrow();
-        UpdatePrompt(aimedInteractable, aimedPickup);
+        HandleDrop();
+        UpdatePrompt(aimedInteractable, aimedPickup, aimedHoldable);
     }
 
-    private void HandleUse(Interactable aimed)
+    private void HandleUse(Interactable aimed, Holdable holdable)
     {
-        if (useAction.WasPressedThisFrame() && aimed != null)
+        if (useAction.WasPressedThisFrame())
         {
-            aimed.InteractStart();
-            activeInteractable = aimed;
-            if (!aimed.HasBehaviour) ShowMessage("Nothing happened.");
+            // Priority: pick up a holdable if we're aiming at one with hands free.
+            if (heldItem == null && heldObject == null && holdable != null && !holdable.IsHeld && holdAnchor != null)
+            {
+                heldItem = holdable;
+                heldItem.PickUp(holdAnchor);
+            }
+            else if (aimed != null)
+            {
+                aimed.InteractStart();
+                activeInteractable = aimed;
+                if (!aimed.HasBehaviour) ShowMessage("Nothing happened.");
+            }
         }
         if (useAction.WasReleasedThisFrame()) ReleaseInteractable();
+    }
+
+    private void HandleDrop()
+    {
+        if (dropAction.WasPressedThisFrame()) DropItem();
     }
 
     private void HandleGrab(Pickuppable aimedPickup)
@@ -157,10 +182,14 @@ public class PlayerInteractor : MonoBehaviour
         chargeTimer = 0f;
     }
 
-    private void UpdatePrompt(Interactable aimedInteractable, Pickuppable aimedPickup)
+    private void UpdatePrompt(Interactable aimedInteractable, Pickuppable aimedPickup, Holdable aimedHoldable)
     {
-        if (heldObject != null)
+        if (heldItem != null)
+            InteractionPrompt = "[R] Drop";
+        else if (heldObject != null)
             InteractionPrompt = "[LMB] Drop     [RMB] Hold to Throw";
+        else if (aimedHoldable != null && !aimedHoldable.IsHeld)
+            InteractionPrompt = "Press E to pick up";
         else if (aimedInteractable != null)
             InteractionPrompt = $"[E] {aimedInteractable.PromptName}";
         else if (aimedPickup != null)
@@ -183,17 +212,29 @@ public class PlayerInteractor : MonoBehaviour
         heldObject = null;
     }
 
-    private void ShowMessage(string text) { messageText = text; messageTimer = messageDuration; }
+    private void DropItem()
+    {
+        if (heldItem == null) return;
+        Vector3 pos = aimSource != null
+            ? aimSource.position + aimSource.forward * dropDistance
+            : transform.position + transform.forward * dropDistance;
+        heldItem.Drop(pos);
+        heldItem = null;
+    }
 
-    private Interactable Raycast(out Pickuppable pickup)
+    public void ShowMessage(string text) { messageText = text; messageTimer = messageDuration; }
+
+    private Interactable Raycast(out Pickuppable pickup, out Holdable holdable)
     {
         pickup = null;
+        holdable = null;
         if (aimSource == null) return null;
 
         if (Physics.Raycast(aimSource.position, aimSource.forward, out RaycastHit hit,
                              interactRange, interactMask, QueryTriggerInteraction.Ignore))
         {
             pickup = hit.collider.GetComponentInParent<Pickuppable>();
+            holdable = hit.collider.GetComponentInParent<Holdable>();
             return hit.collider.GetComponentInParent<Interactable>();
         }
         return null;
