@@ -10,12 +10,14 @@ using UnityEngine.Events;
 /// Modes:
 ///   Toggle : each E press flips between activated / deactivated.
 ///   Hold   : activated while E is held, deactivated when released.
+///   Press  : momentary — fires On Activated on every press (no on/off state).
+///            Use this for buttons/locks whose wired event should run each press.
 ///
 /// Requires a Collider on the object so the aim ray can hit it.
 /// </summary>
 public class Interactable : MonoBehaviour
 {
-    public enum Mode { Toggle, Hold }
+    public enum Mode { Toggle, Hold, Press }
 
     [SerializeField] private Mode mode = Mode.Toggle;
     [Tooltip("Shown by the debug overlay when you aim at this.")]
@@ -29,18 +31,22 @@ public class Interactable : MonoBehaviour
 
     /// <summary>True if any inspector-wired listeners exist on either event.
     /// The interactor uses this to show "Nothing happened." on empty objects.</summary>
-    public virtual bool HasBehaviour =>
+    public bool HasBehaviour =>
         onActivated.GetPersistentEventCount() > 0 || onDeactivated.GetPersistentEventCount() > 0;
 
     /// <summary>Called by PlayerInteractor when E is pressed while aiming here.</summary>
-    public virtual void InteractStart()
+    public void InteractStart()
     {
-        if (mode == Mode.Toggle) SetActive(!IsActive);
-        else SetActive(true);
+        switch (mode)
+        {
+            case Mode.Toggle: SetActive(!IsActive); break;   // flip on/off each press
+            case Mode.Hold:   SetActive(true); break;        // on while E is held
+            case Mode.Press:  onActivated?.Invoke(); break;  // momentary: fire every press
+        }
     }
 
     /// <summary>Called by PlayerInteractor when E is released (matters for Hold mode).</summary>
-    public virtual void InteractEnd()
+    public void InteractEnd()
     {
         if (mode == Mode.Hold) SetActive(false);
     }

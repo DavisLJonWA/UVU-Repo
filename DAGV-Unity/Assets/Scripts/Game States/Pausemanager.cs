@@ -26,6 +26,9 @@ public class PauseManager : MonoBehaviour
 
     private void Update()
     {
+        // Don't allow pausing once the run has ended (game over / victory).
+        if (GameOverManager.IsGameOver || VictoryManager.IsVictory) return;
+
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             SetPaused(!IsPaused);
     }
@@ -44,12 +47,5 @@ public class PauseManager : MonoBehaviour
     // ---- Hooked to UI Buttons via their OnClick() in the Inspector ----
     public void Resume() => SetPaused(false);
 
-    public void Quit()
-    {
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#else
-        Application.Quit();
-#endif
-    }
+    public void Quit() => GameState.QuitApplication();
 }

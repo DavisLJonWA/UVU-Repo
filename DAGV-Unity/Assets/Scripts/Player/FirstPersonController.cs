@@ -181,7 +181,7 @@ public class FirstPersonController : MonoBehaviour
 
     private void Update()
     {
-        if (PauseManager.IsPaused || GameOverManager.IsGameOver || VictoryManager.IsVictory) return;
+        if (GameState.Frozen) return;
 
         HandleToggles();
         HandleLook();

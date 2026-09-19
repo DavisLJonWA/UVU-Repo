@@ -101,6 +101,7 @@ public abstract class Enemy : MonoBehaviour
 
     protected virtual void Update()
     {
+        if (GameState.Frozen) return;   // no chasing/catching while paused, dead, or won
         if (player == null || !agent.isOnNavMesh) return;
 
         bool canSee = CanSeePlayer();
