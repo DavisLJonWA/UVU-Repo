@@ -184,18 +184,14 @@ public class PlayerInteractor : MonoBehaviour
 
     private void UpdatePrompt(Interactable aimedInteractable, Pickuppable aimedPickup, Holdable aimedHoldable)
     {
-        // Show a drop hint alongside a use prompt when we're holding an item, so a
-        // held key doesn't hide "[E] Open the door" on the exit.
-        string dropHint = heldItem != null ? "     [R] Drop" : "";
-
-        if (aimedInteractable != null)
-            InteractionPrompt = $"[E] {aimedInteractable.PromptName}{dropHint}";
-        else if (aimedHoldable != null && !aimedHoldable.IsHeld && heldItem == null && heldObject == null)
-            InteractionPrompt = "Press E to pick up";
-        else if (heldItem != null)
+        if (heldItem != null)
             InteractionPrompt = "[R] Drop";
         else if (heldObject != null)
             InteractionPrompt = "[LMB] Drop     [RMB] Hold to Throw";
+        else if (aimedHoldable != null && !aimedHoldable.IsHeld)
+            InteractionPrompt = "Press E to pick up";
+        else if (aimedInteractable != null)
+            InteractionPrompt = $"[E] {aimedInteractable.PromptName}";
         else if (aimedPickup != null)
             InteractionPrompt = "[LMB] Pick Up";
         else
