@@ -56,6 +56,14 @@ public class Door : MonoBehaviour
     [Tooltip("Bounce-back when it slams into the fully-open limit (0 = dead stop).")]
     [SerializeField, Range(0f, 0.9f)] private float slamBounce = 0.25f;
 
+    [Header("Auto Close")]
+    [Tooltip("If on, the door swings back to its start (closed) position after being left alone.")]
+    [SerializeField] private bool autoClose = false;
+    [Tooltip("Seconds of stillness (no push, no swing) before it starts closing.")]
+    [SerializeField] private float closeDelay = 0.2f;
+    [Tooltip("How fast it swings back to closed, in deg/s.")]
+    [SerializeField] private float closeSpeed = 120f;
+
     [Header("Global Feel (ArtisanDream FloatData, optional)")]
     [Tooltip("Optional shared multiplier so you can tune ALL doors from one asset.")]
     [SerializeField] private FloatData openSpeedScaleData;
@@ -66,6 +74,7 @@ public class Door : MonoBehaviour
     private Quaternion closedRotation;
     private float currentAngle;  // signed degrees from closed
     private float swingSpeed;     // signed deg/s
+    private float lastActiveTime; // last time it was pushed or moving (drives auto-close)
 
     private void Awake()
     {
@@ -143,6 +152,8 @@ public class Door : MonoBehaviour
     {
         if (requestedSwing < 1f) return;
 
+        lastActiveTime = Time.time;   // a real push counts as activity (delays auto-close)
+
         // Torque of the push about the hinge -> always swings AWAY from the push side,
         // for either hinge edge, no per-door flipping needed.
         Vector3 lever = contactPoint - transform.position;
@@ -172,25 +183,42 @@ public class Door : MonoBehaviour
 
     private void Update()
     {
-        if (Mathf.Abs(swingSpeed) < 0.01f) return;
-
-        currentAngle += swingSpeed * Time.deltaTime;
-
-        // Slam/settle at the open limits.
-        if (currentAngle > maxOpenAngle)
+        // Active swing: driven by a push, then coasting/settling.
+        if (Mathf.Abs(swingSpeed) >= 0.01f)
         {
-            currentAngle = maxOpenAngle;
-            swingSpeed = -swingSpeed * slamBounce;
+            lastActiveTime = Time.time;   // still moving -> reset the auto-close timer
+
+            currentAngle += swingSpeed * Time.deltaTime;
+
+            // Slam/settle at the open limits.
+            if (currentAngle > maxOpenAngle)
+            {
+                currentAngle = maxOpenAngle;
+                swingSpeed = -swingSpeed * slamBounce;
+            }
+            else if (currentAngle < -maxOpenAngle)
+            {
+                currentAngle = -maxOpenAngle;
+                swingSpeed = -swingSpeed * slamBounce;
+            }
+
+            // Bleed off speed so the swing settles.
+            swingSpeed = Mathf.MoveTowards(swingSpeed, 0f, swingDamping * Time.deltaTime);
+
+            ApplyRotation();
+            return;
         }
-        else if (currentAngle < -maxOpenAngle)
+
+        // Auto-close: once it's been still for closeDelay, swing back to the start.
+        if (autoClose && Mathf.Abs(currentAngle) > 0.01f && Time.time - lastActiveTime >= closeDelay)
         {
-            currentAngle = -maxOpenAngle;
-            swingSpeed = -swingSpeed * slamBounce;
+            currentAngle = Mathf.MoveTowards(currentAngle, 0f, closeSpeed * Time.deltaTime);
+            ApplyRotation();
         }
+    }
 
-        // Bleed off speed so the swing settles.
-        swingSpeed = Mathf.MoveTowards(swingSpeed, 0f, swingDamping * Time.deltaTime);
-
+    private void ApplyRotation()
+    {
         transform.localRotation = closedRotation * Quaternion.Euler(0f, currentAngle, 0f);
     }
 }
