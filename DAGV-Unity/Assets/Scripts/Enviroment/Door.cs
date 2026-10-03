@@ -64,6 +64,12 @@ public class Door : MonoBehaviour
     [Tooltip("How fast it swings back to closed, in deg/s.")]
     [SerializeField] private float closeSpeed = 120f;
 
+    [Header("Enemy Navigation")]
+    [Tooltip("The door blocks NavMesh agents only while within this many degrees of " +
+             "closed. Once pushed open past it, the carve clears so enemies flow " +
+             "through cleanly instead of getting stuck fighting it.")]
+    [SerializeField] private float navBlockAngle = 15f;
+
     [Header("Global Feel (ArtisanDream FloatData, optional)")]
     [Tooltip("Optional shared multiplier so you can tune ALL doors from one asset.")]
     [SerializeField] private FloatData openSpeedScaleData;
@@ -72,6 +78,7 @@ public class Door : MonoBehaviour
     private float OpenSpeedScale => openSpeedScaleData != null ? openSpeedScaleData.Value : openSpeedScaleFallback;
 
     private Quaternion closedRotation;
+    private NavMeshObstacle navObstacle;
     private float currentAngle;  // signed degrees from closed
     private float swingSpeed;     // signed deg/s
     private float lastActiveTime; // last time it was pushed or moving (drives auto-close)
@@ -94,17 +101,22 @@ public class Door : MonoBehaviour
     private void ConfigureNavObstacle()
     {
         Collider leaf = GetComponentInChildren<Collider>();
-        if (leaf == null || leaf.GetComponent<NavMeshObstacle>() != null) return;
+        if (leaf == null) return;
 
-        NavMeshObstacle obs = leaf.gameObject.AddComponent<NavMeshObstacle>();
-        obs.carving = true;
-        obs.carveOnlyStationary = true;   // carve when settled (closed/open); passable mid-swing
-        obs.shape = NavMeshObstacleShape.Box;
-        if (leaf is BoxCollider box)
+        navObstacle = leaf.GetComponent<NavMeshObstacle>();
+        if (navObstacle == null)
         {
-            obs.center = box.center;
-            obs.size = box.size;
+            navObstacle = leaf.gameObject.AddComponent<NavMeshObstacle>();
+            navObstacle.carving = true;
+            navObstacle.carveOnlyStationary = true;
+            navObstacle.shape = NavMeshObstacleShape.Box;
+            if (leaf is BoxCollider box)
+            {
+                navObstacle.center = box.center;
+                navObstacle.size = box.size;
+            }
         }
+        navObstacle.enabled = true;   // door starts closed -> blocking
     }
 
     /// <summary>Player entry point. contactPoint is where they hit, pushDir points
@@ -220,5 +232,10 @@ public class Door : MonoBehaviour
     private void ApplyRotation()
     {
         transform.localRotation = closedRotation * Quaternion.Euler(0f, currentAngle, 0f);
+
+        // Block agents only while (near) closed. Once open past the threshold, stop
+        // carving so the enemy passes cleanly instead of fighting a re-appearing hole.
+        if (navObstacle != null)
+            navObstacle.enabled = Mathf.Abs(currentAngle) < navBlockAngle;
     }
 }

@@ -35,6 +35,15 @@ public class PlayerDebugOverlay : MonoBehaviour
     private Texture2D pixel;
     private readonly StringBuilder sb = new StringBuilder(256);
 
+    // Shared flag so world-space debug gizmos (enemy sight cones, hearing bubbles,
+    // sound pulses) know whether debug mode (F3) is on.
+    public static bool Visible { get; private set; }
+
+    [Tooltip("How long a sound pulse stays visible in the debug gizmos (seconds).")]
+    [SerializeField] private float pulseLifetime = 1.5f;
+    private struct SoundPulse { public Vector3 pos; public float loudness; public float time; }
+    private readonly System.Collections.Generic.List<SoundPulse> pulses = new System.Collections.Generic.List<SoundPulse>();
+
     private void Awake()
     {
         show = visibleOnStart;
@@ -46,12 +55,28 @@ public class PlayerDebugOverlay : MonoBehaviour
         if (interactor == null) interactor = FindFirstObjectByType<PlayerInteractor>();
     }
 
+    private void OnEnable()  { Noise.Heard += OnNoise; }
+    private void OnDisable() { Noise.Heard -= OnNoise; }
+
+    // Every player-made sound passes through here; record it while debug is on.
+    private void OnNoise(Vector3 pos, float loudness)
+    {
+        if (!show) return;
+        pulses.Add(new SoundPulse { pos = pos, loudness = loudness, time = Time.time });
+    }
+
     private void Update()
     {
         if (Keyboard.current != null && Keyboard.current.f3Key.wasPressedThisFrame)
             show = !show;
 
+        Visible = show;   // let world-space gizmos (enemy cones/bubbles, sounds) read it
+
         if (show) cachedText = BuildDebugText();
+
+        // Expire old sound pulses.
+        for (int i = pulses.Count - 1; i >= 0; i--)
+            if (Time.time - pulses[i].time > pulseLifetime) pulses.RemoveAt(i);
     }
 
     private string BuildDebugText()
@@ -207,5 +232,19 @@ public class PlayerDebugOverlay : MonoBehaviour
         GUI.color = c;
         GUI.Label(r, text, smallStyle);
         GUI.color = prev;
+    }
+
+    // World-space debug: each player-made sound as a fading sphere of radius = loudness.
+    private void OnDrawGizmos()
+    {
+        if (!show) return;
+
+        for (int i = 0; i < pulses.Count; i++)
+        {
+            float age = Time.time - pulses[i].time;
+            float a = Mathf.Clamp01(1f - age / Mathf.Max(0.01f, pulseLifetime));
+            Gizmos.color = new Color(1f, 0.35f, 0.35f, a * 0.8f);   // player-made sound
+            Gizmos.DrawWireSphere(pulses[i].pos, pulses[i].loudness);
+        }
     }
 }

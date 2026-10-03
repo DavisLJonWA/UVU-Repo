@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 160ad8149957ff44b9e6c1ec9c60bae1, type: 3}
+  m_Name: Hunter
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyProfile
+  sightRange: 15
+  sightFov: 100
+  loseSightTime: 3
+  hearingSensitivity: 1
+  catchDistance: 1.2
+  decisionInterval: 0.25
+  wanderRadius: 3
+  randomChance: 0.191
+  waypointChance: 0.823
+  waypointCooldown: 11
+  wanderSpeed: 3
+  chaseSpeed: 6
+  shoveStrength: 3
+  fearful: 0
+  stalker: 0
+  stalkDistance: 6
+  stalkStrikeDelay: 4
+  fleeSpeed: 5
+  playerViewAngle: 60
+  spotRange: 25
+  disableWander: 1
+  lookAround: 1
+  scanTimeMin: 1.5
+  scanTimeMax: 4
+  scanTurnSpeed: 70
+  scanTurnInterval: 1
