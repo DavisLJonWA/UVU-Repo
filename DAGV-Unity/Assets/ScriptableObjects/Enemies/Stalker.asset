@@ -15,7 +15,7 @@ MonoBehaviour:
   sightRange: 30
   sightFov: 100
   loseSightTime: 3
-  hearingSensitivity: 3
+  hearingSensitivity: 1.5
   catchDistance: 1.2
   decisionInterval: 0.5
   wanderRadius: 3

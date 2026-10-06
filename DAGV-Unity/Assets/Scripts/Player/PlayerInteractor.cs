@@ -39,6 +39,10 @@ public class PlayerInteractor : MonoBehaviour
     [Tooltip("Base push speed. Actual = this / object mass (heavier = slower).")]
     [SerializeField] private float pushStrength = 2f;
 
+    [Header("Noise")]
+    [Tooltip("Sound event channel. Leave empty to use the legacy static Noise bus.")]
+    [SerializeField] private NoiseChannel noiseChannel;
+
     [Header("Hold (E to hold, R to drop)")]
     [Tooltip("Empty child of the camera where held items sit (position it at the bottom-right of the view).")]
     [SerializeField] private Transform holdAnchor;
@@ -172,7 +176,7 @@ public class PlayerInteractor : MonoBehaviour
             Pickuppable obj = heldObject;
             heldObject = null;
             obj.Throw(aimSource.forward * force);
-            Noise.Emit(obj.transform.position, throwNoise * ratio); // full charge = loud
+            NoiseChannel.Emit(noiseChannel, obj.transform.position, throwNoise * ratio); // full charge = loud
         }
         else
         {
@@ -184,14 +188,18 @@ public class PlayerInteractor : MonoBehaviour
 
     private void UpdatePrompt(Interactable aimedInteractable, Pickuppable aimedPickup, Holdable aimedHoldable)
     {
-        if (heldItem != null)
+        // Show a drop hint alongside a use prompt when we're holding an item, so a
+        // held key doesn't hide "[E] Open the door" on the exit.
+        string dropHint = heldItem != null ? "     [R] Drop" : "";
+
+        if (aimedInteractable != null)
+            InteractionPrompt = $"[E] {aimedInteractable.PromptName}{dropHint}";
+        else if (aimedHoldable != null && !aimedHoldable.IsHeld && heldItem == null && heldObject == null)
+            InteractionPrompt = "Press E to pick up";
+        else if (heldItem != null)
             InteractionPrompt = "[R] Drop";
         else if (heldObject != null)
             InteractionPrompt = "[LMB] Drop     [RMB] Hold to Throw";
-        else if (aimedHoldable != null && !aimedHoldable.IsHeld)
-            InteractionPrompt = "Press E to pick up";
-        else if (aimedInteractable != null)
-            InteractionPrompt = $"[E] {aimedInteractable.PromptName}";
         else if (aimedPickup != null)
             InteractionPrompt = "[LMB] Pick Up";
         else

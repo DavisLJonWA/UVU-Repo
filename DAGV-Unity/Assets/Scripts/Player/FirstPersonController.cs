@@ -109,6 +109,8 @@ public class FirstPersonController : MonoBehaviour
     private float verticalVelocity;   // Y-axis speed (gravity / jump)
 
     [Header("Footstep Noise")]
+    [Tooltip("Sound event channel. Leave empty to use the legacy static Noise bus.")]
+    [SerializeField] private NoiseChannel noiseChannel;
     [Tooltip("Base seconds between footstep sounds while moving.")]
     [SerializeField] private float footstepInterval = 0.5f;
     [SerializeField] private float walkLoudness = 6f;
@@ -326,7 +328,7 @@ public class FirstPersonController : MonoBehaviour
         footstepTimer = 0f;
 
         float loudness = isCrouching ? crouchLoudness : isSprinting ? sprintLoudness : walkLoudness;
-        Noise.Emit(transform.position, loudness);
+        NoiseChannel.Emit(noiseChannel, transform.position, loudness);
     }
 
     private void UpdateCameraTransform()

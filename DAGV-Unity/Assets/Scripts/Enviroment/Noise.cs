@@ -15,6 +15,10 @@ using UnityEngine;
 ///
 /// It's a plain static event — no scene object needed. Subscribers MUST
 /// unsubscribe (enemies do this in OnDisable) to avoid leaks.
+///
+/// NOTE: this is now the FALLBACK bus behind NoiseChannel (the ScriptableObject
+/// event channel). Scripts prefer an assigned NoiseChannel and only use this when
+/// their channel slot is empty, so the switch to channels can't break anything.
 /// </summary>
 public static class Noise
 {

@@ -40,6 +40,8 @@ public abstract class Enemy : MonoBehaviour
     [SerializeField] protected Transform[] waypoints;
     [Tooltip("Layers the enemy can shove: doors and physics objects. Exclude the enemy's own layer if it self-hits.")]
     [SerializeField] protected LayerMask pushMask = ~0;
+    [Tooltip("Sound event channel to listen on. Leave empty to use the legacy static Noise bus.")]
+    [SerializeField] protected NoiseChannel noiseChannel;
 
     // --- All tuning now reads straight from the profile. ---
     protected float SightRange         => profile.sightRange;
@@ -111,8 +113,17 @@ public abstract class Enemy : MonoBehaviour
         }
     }
 
-    protected virtual void OnEnable()  { Noise.Heard += OnHeardSound; }
-    protected virtual void OnDisable() { Noise.Heard -= OnHeardSound; }
+    protected virtual void OnEnable()
+    {
+        if (noiseChannel != null) noiseChannel.Heard += OnHeardSound;
+        else Noise.Heard += OnHeardSound;
+    }
+
+    protected virtual void OnDisable()
+    {
+        if (noiseChannel != null) noiseChannel.Heard -= OnHeardSound;
+        else Noise.Heard -= OnHeardSound;
+    }
 
     protected virtual void Update()
     {

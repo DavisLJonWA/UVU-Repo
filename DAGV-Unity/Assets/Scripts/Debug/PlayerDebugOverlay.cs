@@ -39,6 +39,8 @@ public class PlayerDebugOverlay : MonoBehaviour
     // sound pulses) know whether debug mode (F3) is on.
     public static bool Visible { get; private set; }
 
+    [Tooltip("Sound event channel to visualize. Leave empty to use the legacy static Noise bus.")]
+    [SerializeField] private NoiseChannel noiseChannel;
     [Tooltip("How long a sound pulse stays visible in the debug gizmos (seconds).")]
     [SerializeField] private float pulseLifetime = 1.5f;
     private struct SoundPulse { public Vector3 pos; public float loudness; public float time; }
@@ -55,8 +57,17 @@ public class PlayerDebugOverlay : MonoBehaviour
         if (interactor == null) interactor = FindFirstObjectByType<PlayerInteractor>();
     }
 
-    private void OnEnable()  { Noise.Heard += OnNoise; }
-    private void OnDisable() { Noise.Heard -= OnNoise; }
+    private void OnEnable()
+    {
+        if (noiseChannel != null) noiseChannel.Heard += OnNoise;
+        else Noise.Heard += OnNoise;
+    }
+
+    private void OnDisable()
+    {
+        if (noiseChannel != null) noiseChannel.Heard -= OnNoise;
+        else Noise.Heard -= OnNoise;
+    }
 
     // Every player-made sound passes through here; record it while debug is on.
     private void OnNoise(Vector3 pos, float loudness)
