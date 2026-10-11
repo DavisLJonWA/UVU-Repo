@@ -61,6 +61,23 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] private float leanOffset = 0.4f;
     [SerializeField] private float leanLerpSpeed = 8f;
 
+    [Header("Head Bob")]
+    [SerializeField] private bool enableHeadBob = true;
+    [Tooltip("Bob speed while walking (higher = quicker steps).")]
+    [SerializeField] private float walkBobFrequency = 8f;
+    [Tooltip("Vertical bob height while walking, in metres.")]
+    [SerializeField] private float walkBobAmplitude = 0.035f;
+    [Tooltip("Side-to-side sway as a fraction of the vertical bob (figure-eight).")]
+    [SerializeField, Range(0f, 1f)] private float horizontalBobFactor = 0.5f;
+    [Tooltip("Running multiplies the bob HEIGHT by this (more severe when running).")]
+    [SerializeField, Min(1f)] private float runBobAmplitudeMultiplier = 1.8f;
+    [Tooltip("Running multiplies the bob SPEED by this.")]
+    [SerializeField, Min(1f)] private float runBobFrequencyMultiplier = 1.35f;
+    [Tooltip("Crouching multiplies the bob height by this (subtler).")]
+    [SerializeField, Range(0f, 1f)] private float crouchBobMultiplier = 0.5f;
+    [Tooltip("How quickly the bob eases in/out as you start/stop moving.")]
+    [SerializeField] private float bobLerpSpeed = 10f;
+
     [Header("Stamina")]
     [SerializeField] private float maxStamina = 100f;
     [SerializeField] private float sprintDrainPerSecond = 25f;
@@ -130,6 +147,10 @@ public class FirstPersonController : MonoBehaviour
     private float currentLeanRoll;
     private float currentLeanOffset;
 
+    private float bobTimer;
+    private float bobWeight;           // 0..1, eases the bob in/out
+    private Vector3 currentBobOffset;  // local x/y camera shake from walking
+
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -192,6 +213,7 @@ public class FirstPersonController : MonoBehaviour
         HandleMovement();
         HandleFootstepNoise();
         HandleLean();
+        HandleHeadBob();
         UpdateCameraTransform();
     }
 
@@ -312,7 +334,6 @@ public class FirstPersonController : MonoBehaviour
         currentLeanOffset = Mathf.Lerp(currentLeanOffset, targetOffset, leanLerpSpeed * Time.deltaTime);
     }
 
-    // Composes crouch height + lean offset + pitch + lean roll into the camera each frame.
     private void HandleFootstepNoise()
     {
         if (!controller.isGrounded || GetMoveInput().sqrMagnitude < 0.01f)
@@ -331,10 +352,44 @@ public class FirstPersonController : MonoBehaviour
         NoiseChannel.Emit(noiseChannel, transform.position, loudness);
     }
 
+    // Walking/running head bob. Advances a phase only while grounded and moving, and
+    // eases a 0..1 weight so the bob fades in/out instead of snapping. Running makes it
+    // faster AND taller; crouching makes it subtler. Result folds into the camera's
+    // local position alongside the crouch height and lean offset.
+    private void HandleHeadBob()
+    {
+        bool moving = controller.isGrounded && GetMoveInput().sqrMagnitude > 0.01f;
+        float targetWeight = (enableHeadBob && moving) ? 1f : 0f;
+        bobWeight = Mathf.MoveTowards(bobWeight, targetWeight, bobLerpSpeed * Time.deltaTime);
+
+        if (bobWeight <= 0.0001f)
+        {
+            bobTimer = 0f;                 // restart from a neutral footing next time
+            currentBobOffset = Vector3.zero;
+            return;
+        }
+
+        float frequency = walkBobFrequency;
+        float amplitude = walkBobAmplitude;
+        if (isSprinting)      { frequency *= runBobFrequencyMultiplier; amplitude *= runBobAmplitudeMultiplier; }
+        else if (isCrouching) { amplitude *= crouchBobMultiplier; }
+
+        // Only advance the phase while actually moving, so it freezes cleanly when stopping.
+        if (moving) bobTimer += Time.deltaTime * frequency;
+
+        float vertical   = Mathf.Sin(bobTimer) * amplitude;
+        float horizontal = Mathf.Cos(bobTimer * 0.5f) * amplitude * horizontalBobFactor;
+        currentBobOffset = new Vector3(horizontal, vertical, 0f) * bobWeight;
+    }
+
+    // Composes crouch height + lean offset + head bob + pitch + lean roll into the camera.
     private void UpdateCameraTransform()
     {
         if (cameraTransform == null) return;
-        cameraTransform.localPosition = new Vector3(currentLeanOffset, currentCameraHeight, 0f);
+        cameraTransform.localPosition = new Vector3(
+            currentLeanOffset + currentBobOffset.x,
+            currentCameraHeight + currentBobOffset.y,
+            0f);
         cameraTransform.localRotation = Quaternion.Euler(pitch, 0f, currentLeanRoll);
     }
 

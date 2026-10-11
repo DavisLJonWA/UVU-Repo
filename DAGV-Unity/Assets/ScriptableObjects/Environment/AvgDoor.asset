@@ -12,11 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85390ecd7681cff4daf001536540ab91, type: 3}
   m_Name: AvgDoor
   m_EditorClassIdentifier: Assembly-CSharp::DoorProfile
-  maxOpenAngle: 100
+  maxOpenAngle: 85
   speedToSwing: 20
   maxSwingSpeed: 500
   minPushSpeed: 0.2
   heaviness: 1
+  interactOpenSpeed: 40
   objectImpactScale: 20
   slamNoiseThreshold: 150
   slamNoise: 16

@@ -33,6 +33,7 @@ public class Door : MonoBehaviour
     private float MaxSwingSpeed     => profile.maxSwingSpeed;
     private float MinPushSpeed      => profile.minPushSpeed;
     private float Heaviness         => profile.heaviness;
+    private float InteractOpenSpeed => profile.interactOpenSpeed;
     private float ObjectImpactScale => profile.objectImpactScale;
     private float SlamNoiseThreshold=> profile.slamNoiseThreshold;
     private float SlamNoise         => profile.slamNoise;
@@ -49,6 +50,9 @@ public class Door : MonoBehaviour
     private float swingSpeed;      // signed deg/s
     private float lastActiveTime;  // last time it was pushed or moving (drives auto-close)
     private float lastNoiseTime;
+
+    private bool opening;          // commanded full-open (E interaction) in progress
+    private int commandedSide = 1; // which way the commanded open swings
 
     private void Awake()
     {
@@ -97,6 +101,34 @@ public class Door : MonoBehaviour
     {
         if (speed < MinPushSpeed) return;
         ApplySwing(contactPoint, pushDir, (speed - MinPushSpeed) * SpeedToSwing);
+    }
+
+    /// <summary>Interaction entry point (press E, or an enemy touching the door). Swings
+    /// the door ALL the way open, away from the pusher, using the same hinge-side math as
+    /// a walk-in push. pushDir is the pusher's facing; contactPoint is where they touched.
+    /// makeNoise=false for enemies, so a door they open can't be "heard" and re-investigated
+    /// (which otherwise traps a wandering enemy in a loop at the door).</summary>
+    public void OpenFully(Vector3 contactPoint, Vector3 pushDir, bool makeNoise = true)
+    {
+        // Torque about the hinge -> the side AWAY from the push (same as ApplySwing).
+        Vector3 lever = contactPoint - transform.position;
+        float torque = Vector3.Dot(Vector3.Cross(lever, pushDir), transform.up);
+        float side = Mathf.Sign(torque);
+        if (side == 0f) side = 1f;
+        if (flipDirection) side = -side;
+
+        commandedSide = (int)side;
+        opening = true;
+        swingSpeed = 0f;              // hand control to the commanded-open driver in Update
+        lastActiveTime = Time.time;
+
+        // A deliberate player shove is audible to enemies (shares the slam cooldown).
+        // Enemies pass makeNoise=false so they don't hear doors they open themselves.
+        if (makeNoise && Time.time - lastNoiseTime > 0.3f)
+        {
+            lastNoiseTime = Time.time;
+            NoiseChannel.Emit(noiseChannel, transform.position, SlamNoise * 0.5f);
+        }
     }
 
     // --- Physics objects / entities hitting the door ---
@@ -160,6 +192,25 @@ public class Door : MonoBehaviour
 
     private void Update()
     {
+        // Commanded full-open (E interaction): drive straight to the open stop, then
+        // release control back to the auto-close logic.
+        if (opening)
+        {
+            // Dedicated, independently-tunable open speed; fall back to the push cap if
+            // a profile predates this field (0) so the door still opens.
+            float openSpeed = InteractOpenSpeed > 0f ? InteractOpenSpeed : MaxSwingSpeed;
+            float targetAngle = commandedSide * MaxOpenAngle;
+            currentAngle = Mathf.MoveTowards(currentAngle, targetAngle, openSpeed * Time.deltaTime);
+            lastActiveTime = Time.time;
+            ApplyRotation();
+            if (Mathf.Abs(currentAngle - targetAngle) < 0.01f)
+            {
+                opening = false;
+                swingSpeed = 0f;
+            }
+            return;
+        }
+
         // Active swing: driven by a push, then coasting/settling.
         if (Mathf.Abs(swingSpeed) >= 0.01f)
         {

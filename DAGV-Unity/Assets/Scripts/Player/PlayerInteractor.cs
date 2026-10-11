@@ -98,19 +98,21 @@ public class PlayerInteractor : MonoBehaviour
 
         if (GameState.Frozen) { InteractionPrompt = ""; return; }
 
-        Interactable aimedInteractable = Raycast(out Pickuppable aimedPickup, out Holdable aimedHoldable);
+        Interactable aimedInteractable = Raycast(out Pickuppable aimedPickup, out Holdable aimedHoldable,
+                                                 out Door aimedDoor, out Vector3 aimPoint);
         AimedName = aimedInteractable != null ? aimedInteractable.PromptName
                   : aimedHoldable != null ? aimedHoldable.DisplayName
-                  : aimedPickup != null ? aimedPickup.name : "-";
+                  : aimedPickup != null ? aimedPickup.name
+                  : aimedDoor != null ? "Door" : "-";
 
-        HandleUse(aimedInteractable, aimedHoldable);
+        HandleUse(aimedInteractable, aimedHoldable, aimedDoor, aimPoint);
         HandleGrab(aimedPickup);
         HandleThrow();
         HandleDrop();
-        UpdatePrompt(aimedInteractable, aimedPickup, aimedHoldable);
+        UpdatePrompt(aimedInteractable, aimedPickup, aimedHoldable, aimedDoor);
     }
 
-    private void HandleUse(Interactable aimed, Holdable holdable)
+    private void HandleUse(Interactable aimed, Holdable holdable, Door door, Vector3 aimPoint)
     {
         if (useAction.WasPressedThisFrame())
         {
@@ -125,6 +127,11 @@ public class PlayerInteractor : MonoBehaviour
                 aimed.InteractStart();
                 activeInteractable = aimed;
                 if (!aimed.HasBehaviour) ShowMessage("Nothing happened.");
+            }
+            else if (door != null && aimSource != null)
+            {
+                // Shove the door fully open in the direction we're facing.
+                door.OpenFully(aimPoint, aimSource.forward);
             }
         }
         if (useAction.WasReleasedThisFrame()) ReleaseInteractable();
@@ -186,7 +193,7 @@ public class PlayerInteractor : MonoBehaviour
         chargeTimer = 0f;
     }
 
-    private void UpdatePrompt(Interactable aimedInteractable, Pickuppable aimedPickup, Holdable aimedHoldable)
+    private void UpdatePrompt(Interactable aimedInteractable, Pickuppable aimedPickup, Holdable aimedHoldable, Door aimedDoor)
     {
         // Show a drop hint alongside a use prompt when we're holding an item, so a
         // held key doesn't hide "[E] Open the door" on the exit.
@@ -194,6 +201,8 @@ public class PlayerInteractor : MonoBehaviour
 
         if (aimedInteractable != null)
             InteractionPrompt = $"[E] {aimedInteractable.PromptName}{dropHint}";
+        else if (aimedDoor != null)
+            InteractionPrompt = $"Open (E){dropHint}";
         else if (aimedHoldable != null && !aimedHoldable.IsHeld && heldItem == null && heldObject == null)
             InteractionPrompt = "Press E to pick up";
         else if (heldItem != null)
@@ -232,10 +241,12 @@ public class PlayerInteractor : MonoBehaviour
 
     public void ShowMessage(string text) { messageText = text; messageTimer = messageDuration; }
 
-    private Interactable Raycast(out Pickuppable pickup, out Holdable holdable)
+    private Interactable Raycast(out Pickuppable pickup, out Holdable holdable, out Door door, out Vector3 hitPoint)
     {
         pickup = null;
         holdable = null;
+        door = null;
+        hitPoint = Vector3.zero;
         if (aimSource == null) return null;
 
         if (Physics.Raycast(aimSource.position, aimSource.forward, out RaycastHit hit,
@@ -243,6 +254,8 @@ public class PlayerInteractor : MonoBehaviour
         {
             pickup = hit.collider.GetComponentInParent<Pickuppable>();
             holdable = hit.collider.GetComponentInParent<Holdable>();
+            door = hit.collider.GetComponentInParent<Door>();
+            hitPoint = hit.point;
             return hit.collider.GetComponentInParent<Interactable>();
         }
         return null;

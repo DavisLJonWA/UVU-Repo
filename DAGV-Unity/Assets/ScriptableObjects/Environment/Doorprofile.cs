@@ -26,6 +26,9 @@ public class DoorProfile : ScriptableObject
     public float minPushSpeed = 0.2f;
     [Tooltip("Heaviness: higher = opens slower / needs a firmer push. 1 = baseline.")]
     public float heaviness = 1f;
+    [Tooltip("Speed (deg/s) the door swings fully open when a player presses E on it. " +
+             "Independent of push swings — lower this to make the E-open slower/creakier.")]
+    public float interactOpenSpeed = 120f;
 
     [Header("Object / Entity Impacts")]
     [Tooltip("Deg/s of swing per unit of momentum (mass x speed) from a physics hit.")]

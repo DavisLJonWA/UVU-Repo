@@ -32,7 +32,7 @@ MonoBehaviour:
   fleeSpeed: 5
   playerViewAngle: 60
   spotRange: 25
-  disableWander: 1
+  disableWander: 0
   lookAround: 1
   scanTimeMin: 1.5
   scanTimeMax: 4

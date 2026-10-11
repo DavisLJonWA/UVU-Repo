@@ -23,7 +23,7 @@ MonoBehaviour:
   waypointChance: 0.335
   waypointCooldown: 7
   wanderSpeed: 1.5
-  chaseSpeed: 3
+  chaseSpeed: 9
   shoveStrength: 3
   fearful: 1
   stalker: 1
@@ -32,7 +32,7 @@ MonoBehaviour:
   fleeSpeed: 6
   playerViewAngle: 60
   spotRange: 25
-  disableWander: 0
+  disableWander: 1
   lookAround: 1
   scanTimeMin: 1.5
   scanTimeMax: 4

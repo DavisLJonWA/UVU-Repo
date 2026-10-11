@@ -123,6 +123,20 @@ public abstract class Enemy : MonoBehaviour
     {
         if (noiseChannel != null) noiseChannel.Heard -= OnHeardSound;
         else Noise.Heard -= OnHeardSound;
+
+        SetHunting(false);   // release our claim if we're disabled/destroyed mid-chase
+    }
+
+    // Tracks whether THIS enemy is actively hunting the player, and keeps the shared
+    // ThreatState hunter count in sync. Latched on when we spot-and-chase, off when we
+    // give up and wander — so the "being hunted" signal spans the whole chase + search.
+    private bool hunting;
+    private void SetHunting(bool value)
+    {
+        if (hunting == value) return;
+        hunting = value;
+        if (value) ThreatState.AddHunter();
+        else       ThreatState.RemoveHunter();
     }
 
     protected virtual void Update()
@@ -155,6 +169,7 @@ public abstract class Enemy : MonoBehaviour
     {
         EndScan();
         state = State.Chase;
+        SetHunting(true);               // player is spotted & chased -> start threat feedback
         agent.speed = ChaseSpeed;
         sightLostTimer = 0f;
         timeSinceSpotted = 0f;
@@ -163,18 +178,29 @@ public abstract class Enemy : MonoBehaviour
 
     protected virtual void TickChase(bool canSee)
     {
-        if (canSee) lastKnownPos = player.position;
+        // Direct-line-of-sight timer, for EVERY behaviour. We only "know" where the
+        // player is while we can actually see them; the moment sight breaks we start
+        // counting, and we only ever head toward the last place we truly saw them.
+        if (canSee)
+        {
+            lastKnownPos = player.position;
+            sightLostTimer = 0f;
+        }
+        else
+        {
+            sightLostTimer += Time.deltaTime;
+        }
 
-        // Fear/stalk track the player persistently once engaged; a plain enemy only
-        // knows the last place it actually saw them.
-        Vector3 trackPos = (Fearful || Stalker) ? player.position : lastKnownPos;
+        Vector3 trackPos = canSee ? player.position : lastKnownPos;
 
         // Is the PLAYER looking at us right now? Only relevant for fear/stalk.
         bool spotted = (Fearful || Stalker) && IsSeenByPlayer();
         if (spotted) timeSinceSpotted = 0f;
         else timeSinceSpotted += Time.deltaTime;
 
-        if (Fearful && spotted)
+        bool fleeing = Fearful && spotted;
+
+        if (fleeing)
         {
             Flee();                                         // run while being watched
         }
@@ -192,17 +218,11 @@ public abstract class Enemy : MonoBehaviour
             agent.SetDestination(trackPos);
         }
 
-        // Give up only applies to plain enemies; fear/stalk stay locked on once engaged.
-        if (!Fearful && !Stalker)
-        {
-            if (canSee) sightLostTimer = 0f;
-            else
-            {
-                sightLostTimer += Time.deltaTime;
-                if (sightLostTimer >= LoseSightTime)
-                    EnterInvestigate(lastKnownPos);
-            }
-        }
+        // Lose track once direct visual can't be held for LoseSightTime — now applies
+        // to stalkers and fearful enemies too, not just plain ones. A fearful enemy
+        // mid-flee is exempt so it doesn't abandon a run while still being watched.
+        if (!fleeing && sightLostTimer >= LoseSightTime)
+            EnterInvestigate(lastKnownPos);
     }
 
     // Run to a navmesh point away from the player.
@@ -241,6 +261,7 @@ public abstract class Enemy : MonoBehaviour
         if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
         {
             state = State.Wander;   // arrived, nothing here -> back to wandering
+            SetHunting(false);      // gave up the search -> stop threat feedback
             idleTimer = 0f;
         }
     }
@@ -463,7 +484,9 @@ public abstract class Enemy : MonoBehaviour
             Door door = col.GetComponentInParent<Door>();
             if (door != null)
             {
-                door.Push(col.ClosestPoint(front), transform.forward, pushSpeed);
+                // Same as the player's E-open, but SILENT: a door the enemy opens must not
+                // emit a noise pulse, or the enemy hears it and investigates its own door.
+                door.OpenFully(col.ClosestPoint(front), transform.forward, false);
                 continue;
             }
 
