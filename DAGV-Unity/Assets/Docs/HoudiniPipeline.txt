@@ -1,0 +1,41 @@
+# Houdini to Unity Pipeline Rules
+
+## Scale
+- 1 Houdini unit = 1 Unity meter
+- Checked against a default Unity cube (1 m) and a 1.8 m player capsule
+
+## Orientation
+- +Y is up
+- +Z is forward
+
+## Pivots
+- Props and furniture: bottom-center (set with Match Size SOP)
+- Modular walls: bottom-left corner so they snap to the grid
+
+## Naming
+- Format: SM_Category_Name_Variant (example: SM_Bookshelf_Tall_01)
+- No spaces, no temp names like "test" or "box1"
+- Collision meshes start with COL_ (example: COL_Bookshelf_Tall_01)
+
+## Materials
+- Houdini assigns material IDs: M_Wood, M_Wallpaper, M_Metal
+- In Unity, these slots are remapped to the URP materials in Assets/Art/Materials
+
+## Collision
+- Simple box or convex hull exported as a separate COL_ mesh
+- Used as a Mesh Collider in Unity with its renderer turned off
+
+## LODs
+- Not used. The pixelation filter hides fine detail, so LODs add work without a visible benefit.
+
+## Export Folders
+- Houdini exports go to: Assets/Art/Houdini/<FamilyName>/Meshes
+- Materials: Assets/Art/Houdini/<FamilyName>/Materials
+- Prefabs: Assets/Art/Houdini/<FamilyName>/Prefabs
+
+## Validation Checklist (do this for every new asset)
+- [ ] Correct size next to the reference cube
+- [ ] Pivot in the right spot
+- [ ] Materials remapped correctly
+- [ ] Collider fits and the player can't walk through it
+- [ ] Saved as a prefab in the right folder

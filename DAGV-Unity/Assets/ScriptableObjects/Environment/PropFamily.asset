@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1c269ccb2dfbac4ba90b2f2eff1f256, type: 3}
+  m_Name: PropFamily
+  m_EditorClassIdentifier: Assembly-CSharp::PropFamily
+  familyName: Crates
+  variants:
+  - {fileID: 919132149155446097, guid: dc2e69d0239bef1439c349fe6fb45182, type: 3}
+  - {fileID: 919132149155446097, guid: 86e89e505a5aa6e43898a7a72f11eba5, type: 3}
+  - {fileID: 919132149155446097, guid: 3e57fcece06173e42b208bf5a1820460, type: 3}
+  - {fileID: 919132149155446097, guid: 15a4d09d55d044f488b6ae0c21b38939, type: 3}
+  - {fileID: 919132149155446097, guid: 70b0679ef91da1e48844cfb689b9ba6c, type: 3}

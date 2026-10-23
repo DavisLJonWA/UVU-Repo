@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 039ef298acdf3b240979b46a6386205f, type: 3}
+  m_Name: LevelDefinition
+  m_EditorClassIdentifier: Assembly-CSharp::LevelDefinition
+  levelName: Level_Main
+  difficultyMultiplier: 1
+  groupInterval: 0
+  groups:
+  - family: {fileID: 11400000, guid: 449cb47d396ff194eb8f600b6986c2d5, type: 2}
+    zoneId: 2
+    baseCount: 15
+    uniquePositions: 1
+  - family: {fileID: 11400000, guid: 449cb47d396ff194eb8f600b6986c2d5, type: 2}
+    zoneId: 1
+    baseCount: 18
+    uniquePositions: 1
