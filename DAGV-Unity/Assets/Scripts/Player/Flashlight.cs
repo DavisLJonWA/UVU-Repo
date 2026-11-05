@@ -64,13 +64,15 @@ public class Flashlight : MonoBehaviour
         spot.type = LightType.Spot;
 
         isOn = startOn;
-        ApplySettings();
+        ApplyShape();
+        ApplyIntensity();
 
         toggleAction = new InputAction("FlashlightToggle", InputActionType.Button, "<Keyboard>/f");
     }
 
     private void OnEnable()  => toggleAction?.Enable();
     private void OnDisable() => toggleAction?.Disable();
+    private void OnDestroy() => toggleAction?.Dispose();   // free the code-created action
 
     private void Update()
     {
@@ -78,9 +80,7 @@ public class Flashlight : MonoBehaviour
             Toggle();
 
         UpdateFlicker();
-
-        // Re-apply every frame so inspector tweaks during Play mode are visible.
-        ApplySettings();
+        ApplyIntensity();   // only intensity/enabled change per frame (flicker); shape is static
     }
 
     // Randomly flickers and dims the beam while the player is being hunted; eases
@@ -124,8 +124,9 @@ public class Flashlight : MonoBehaviour
         if (spot != null) spot.enabled = isOn;
     }
 
-    /// <summary>Push the inspector values onto the Light.</summary>
-    private void ApplySettings()
+    /// <summary>Push the static beam shape onto the Light. Only needs to run when these
+    /// values change (startup / inspector edits), not every frame.</summary>
+    private void ApplyShape()
     {
         if (spot == null) return;
         spot.type = LightType.Spot;
@@ -133,8 +134,14 @@ public class Flashlight : MonoBehaviour
         // innerSpotAngle controls where falloff begins; softness shrinks it below the outer angle.
         spot.innerSpotAngle = coneAngle * (1f - edgeSoftness);
         spot.range = range;
-        spot.intensity = brightness * flickerMul;   // flickerMul is 1 unless being hunted
         spot.color = color;
+    }
+
+    /// <summary>Per-frame bits: brightness (scaled by the flicker) and on/off.</summary>
+    private void ApplyIntensity()
+    {
+        if (spot == null) return;
+        spot.intensity = brightness * flickerMul;   // flickerMul is 1 unless being hunted
         spot.enabled = isOn;
     }
 
@@ -146,7 +153,8 @@ public class Flashlight : MonoBehaviour
         if (spot == null) return;
         // In edit mode, preview using the startup state so the scene view matches.
         if (!Application.isPlaying) isOn = startOn;
-        ApplySettings();
+        ApplyShape();
+        ApplyIntensity();
     }
 #endif
 }

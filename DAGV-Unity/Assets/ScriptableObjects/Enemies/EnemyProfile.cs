@@ -17,6 +17,9 @@ public class EnemyProfile : ScriptableObject
     [Range(0f, 360f)] public float sightFov = 100f;
     [Tooltip("Seconds of not seeing the player before a chase downgrades to investigate.")]
     public float loseSightTime = 3f;
+    [Tooltip("Seconds between line-of-sight re-checks. ~0.1 feels instant and cuts raycast " +
+             "cost sharply with several enemies. 0 = check every frame (most responsive, most costly).")]
+    public float perceptionInterval = 0.1f;
 
     [Header("Hearing")]
     [Tooltip("Multiplies how far sounds carry to this enemy. 1 = as emitted.")]

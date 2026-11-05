@@ -23,4 +23,12 @@ public class GameOverManager : EndScreen
         IsGameOver = true;
         Show();
     }
+
+    // Clear the static references when this instance goes away (e.g. scene reload on
+    // Restart) so nothing points at a destroyed object between runs.
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+        IsGameOver = false;
+    }
 }

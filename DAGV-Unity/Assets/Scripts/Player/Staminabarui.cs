@@ -26,6 +26,7 @@ public class StaminaBarUI : MonoBehaviour
     [SerializeField] private Color fullColor  = new Color(0.25f, 0.80f, 0.35f);
 
     private CanvasGroup group;
+    private float lastShown = -1f;   // last stamina we actually pushed to the UI
 
     private void Awake()
     {
@@ -38,6 +39,12 @@ public class StaminaBarUI : MonoBehaviour
         if (player == null || fillImage == null) return;
 
         float s = player.Stamina01;
+
+        // Writing fillAmount/color dirties the canvas and forces a rebuild, so only do it
+        // when the value actually moved. When stamina sits full or idle, this is a no-op.
+        if (Mathf.Abs(s - lastShown) < 0.001f) return;
+        lastShown = s;
+
         fillImage.fillAmount = s;
         fillImage.color = Color.Lerp(emptyColor, fullColor, s);
 

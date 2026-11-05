@@ -92,6 +92,13 @@ public class PlayerInteractor : MonoBehaviour
     private void OnDisable() { useAction.Disable(); grabAction.Disable(); throwAction.Disable(); scrollAction.Disable(); dropAction.Disable();
                                DropHeld(); DropItem(); ReleaseInteractable(); }
 
+    // Dispose code-created InputActions so their unmanaged state doesn't leak on reload.
+    private void OnDestroy()
+    {
+        useAction?.Dispose();   grabAction?.Dispose(); throwAction?.Dispose();
+        scrollAction?.Dispose(); dropAction?.Dispose();
+    }
+
     private void Update()
     {
         if (messageTimer > 0f) messageTimer -= Time.deltaTime;

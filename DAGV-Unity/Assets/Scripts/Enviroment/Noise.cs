@@ -30,4 +30,10 @@ public static class Noise
         if (loudness <= 0f) return;
         Heard?.Invoke(position, loudness);
     }
+
+    // Static event subscribers survive between Play sessions when Domain Reload is
+    // disabled, which would leave stale listeners from a previous run. Clear them
+    // before each play (matches ThreatState's guard).
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => Heard = null;
 }

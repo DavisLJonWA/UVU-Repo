@@ -47,6 +47,7 @@ public abstract class Enemy : MonoBehaviour
     protected float SightRange         => profile.sightRange;
     protected float SightFov           => profile.sightFov;
     protected float LoseSightTime      => profile.loseSightTime;
+    protected float PerceptionInterval => profile.perceptionInterval;
     protected float HearingSensitivity => profile.hearingSensitivity;
     protected float CatchDistance      => profile.catchDistance;
     protected float DecisionInterval   => profile.decisionInterval;
@@ -144,7 +145,7 @@ public abstract class Enemy : MonoBehaviour
         if (GameState.Frozen) return;   // no chasing/catching while paused, dead, or won
         if (player == null || !agent.isOnNavMesh) return;
 
-        bool canSee = CanSeePlayer();
+        bool canSee = PerceiveCanSeePlayer();
         if (canSee && state != State.Chase) EnterChase();   // engage on first sight only
 
         switch (state)
@@ -358,6 +359,26 @@ public abstract class Enemy : MonoBehaviour
     }
 
     // ---------------- Sight: does the ENEMY see the PLAYER? ----------------
+    private float perceptionTimer;
+    private bool cachedCanSee;
+
+    // Line-of-sight is the enemy's only always-on raycast. Re-check it on a short cadence
+    // and cache the result instead of raycasting every frame; PerceptionInterval <= 0
+    // restores exact per-frame behaviour.
+    protected bool PerceiveCanSeePlayer()
+    {
+        float interval = PerceptionInterval;
+        if (interval <= 0f) return CanSeePlayer();
+
+        perceptionTimer -= Time.deltaTime;
+        if (perceptionTimer <= 0f)
+        {
+            perceptionTimer = interval;
+            cachedCanSee = CanSeePlayer();
+        }
+        return cachedCanSee;
+    }
+
     protected virtual bool CanSeePlayer()
     {
         Vector3 eyePos = eyes != null ? eyes.position : transform.position + Vector3.up * eyeHeight;

@@ -202,6 +202,14 @@ public class FirstPersonController : MonoBehaviour
         crouchAction.Disable(); leanAction.Disable(); jumpAction.Disable();
     }
 
+    // Code-created InputActions hold unmanaged state that Disable() doesn't free;
+    // dispose them so nothing leaks across scene reloads.
+    private void OnDestroy()
+    {
+        moveAction?.Dispose();   lookAction?.Dispose();   sprintAction?.Dispose();
+        crouchAction?.Dispose(); leanAction?.Dispose();   jumpAction?.Dispose();
+    }
+
     private void Update()
     {
         if (GameState.Frozen) return;
