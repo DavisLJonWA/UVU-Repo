@@ -26,6 +26,9 @@ public class PlayerDebugOverlay : MonoBehaviour
 
     [SerializeField] private bool visibleOnStart = false;
     [SerializeField] private int fontSize = 16;
+    [Tooltip("How often (seconds) the debug text refreshes while open. 0.1 = 10x/sec. " +
+             "Debug text doesn't need 60fps; throttling it keeps per-frame GC near zero.")]
+    [SerializeField] private float refreshInterval = 0.1f;
 
     private PerformanceMonitor perf;
     private bool show;
@@ -34,6 +37,10 @@ public class PlayerDebugOverlay : MonoBehaviour
     private GUIStyle smallStyle;
     private Texture2D pixel;
     private readonly StringBuilder sb = new StringBuilder(256);
+
+    private float refreshTimer;
+    // Legend strings, rebuilt on the refresh tick so OnGUI allocates nothing drawing them.
+    private string ramText = string.Empty, cpuText = string.Empty, gpuText = string.Empty;
 
     // Shared flag so world-space debug gizmos (enemy sight cones, hearing bubbles,
     // sound pulses) know whether debug mode (F3) is on.
@@ -79,15 +86,39 @@ public class PlayerDebugOverlay : MonoBehaviour
     private void Update()
     {
         if (Keyboard.current != null && Keyboard.current.f3Key.wasPressedThisFrame)
+        {
             show = !show;
+            if (show) refreshTimer = 0f;   // rebuild immediately when opened
+        }
 
         Visible = show;   // let world-space gizmos (enemy cones/bubbles, sounds) read it
 
-        if (show) cachedText = BuildDebugText();
+        // Rebuild the (allocating) text only a few times per second, not every frame.
+        // Unscaled so it keeps updating while the game is paused. Most frames now do
+        // no string work at all -> per-frame GC drops to ~0.
+        if (show)
+        {
+            refreshTimer -= Time.unscaledDeltaTime;
+            if (refreshTimer <= 0f)
+            {
+                refreshTimer = Mathf.Max(0f, refreshInterval);
+                cachedText = BuildDebugText();
+                BuildLegendStrings();
+            }
+        }
 
         // Expire old sound pulses.
         for (int i = pulses.Count - 1; i >= 0; i--)
             if (Time.time - pulses[i].time > pulseLifetime) pulses.RemoveAt(i);
+    }
+
+    // Cache the usage-graph legend text on the refresh tick so OnGUI never builds strings.
+    private void BuildLegendStrings()
+    {
+        if (perf == null) return;
+        ramText = $"RAM {perf.RamNow:0}%";
+        cpuText = $"CPU {perf.CpuNow:0}%";
+        gpuText = perf.GpuSupported ? $"GPU {perf.GpuNow:0}%" : "GPU n/a";
     }
 
     private string BuildDebugText()
@@ -151,6 +182,7 @@ public class PlayerDebugOverlay : MonoBehaviour
     private void OnGUI()
     {
         if (!show) return;
+        if (Event.current.type != EventType.Repaint) return;   // draw once per frame, not per GUI event
 
         if (style == null)
             style = new GUIStyle(GUI.skin.label) { fontSize = fontSize, richText = true, alignment = TextAnchor.UpperLeft };
@@ -200,12 +232,11 @@ public class PlayerDebugOverlay : MonoBehaviour
         PlotSeries(PerformanceMonitor.Channel.Cpu, CpuColor, plot);
         PlotSeries(PerformanceMonitor.Channel.Gpu, GpuColor, plot);
 
-        // Legend with live values
+        // Legend with live values (strings prebuilt on the refresh tick — no alloc here).
         float third = w / 3f;
         float ly = plot.yMax + 2f;
-        Label($"RAM {perf.RamNow:0}%", new Rect(x, ly, third, legendH), RamColor, TextAnchor.UpperLeft);
-        Label($"CPU {perf.CpuNow:0}%", new Rect(x + third, ly, third, legendH), CpuColor, TextAnchor.UpperCenter);
-        string gpuText = perf.GpuSupported ? $"GPU {perf.GpuNow:0}%" : "GPU n/a";
+        Label(ramText, new Rect(x, ly, third, legendH), RamColor, TextAnchor.UpperLeft);
+        Label(cpuText, new Rect(x + third, ly, third, legendH), CpuColor, TextAnchor.UpperCenter);
         Label(gpuText, new Rect(x + third * 2f, ly, third, legendH), GpuColor, TextAnchor.UpperRight);
     }
 

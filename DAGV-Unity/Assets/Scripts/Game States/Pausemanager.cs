@@ -19,6 +19,11 @@ public class PauseManager : MonoBehaviour
              "Hidden while playing, shown while paused.")]
     [SerializeField] private GameObject pauseMenuPanel;
 
+    [Header("Auto-pause")]
+    [Tooltip("Automatically pause when the game window loses focus (e.g. alt-tab) in a build. " +
+             "The player resumes deliberately — it does not auto-unpause on return.")]
+    [SerializeField] private bool pauseOnFocusLoss = true;
+
     private void Awake()
     {
         SetPaused(false);
@@ -31,6 +36,31 @@ public class PauseManager : MonoBehaviour
 
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             SetPaused(!IsPaused);
+    }
+
+    // Window focus lost (alt-tab on desktop). Build-only: in the editor this would fire
+    // every time you click the Inspector/Scene view, which would make development painful.
+    // Remove the #if guard if you want to test it inside the editor too.
+    private void OnApplicationFocus(bool hasFocus)
+    {
+#if !UNITY_EDITOR
+        if (!hasFocus) AutoPause();
+#endif
+    }
+
+    // Fires when the app is backgrounded/suspended (mobile, and desktop when
+    // "Run In Background" is off). Covers the cases OnApplicationFocus doesn't.
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus) AutoPause();
+    }
+
+    // Pause because we lost focus — but never fight an existing pause or an ended run.
+    private void AutoPause()
+    {
+        if (!pauseOnFocusLoss || IsPaused) return;
+        if (GameOverManager.IsGameOver || VictoryManager.IsVictory) return;
+        SetPaused(true);
     }
 
     private void SetPaused(bool paused)
